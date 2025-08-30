@@ -22,10 +22,46 @@ export type EventsCategory =
 
 export async function getEvents(
   sort: EventsSort = "trending",
-  opts?: { category?: EventsCategory; offset?: number; limit?: number }
+  opts?: { category?: EventsCategory; offset?: number; limit?: number; q?: string }
 ): Promise<FetchEventsResult> {
-  const url = new URL("/events", GAMMA_API_BASE);
   const limit = Math.max(1, Math.min(100, opts?.limit ?? 30));
+  const q = (opts?.q || "").trim();
+
+  // If searching, use public-search with documented params
+  if (q) {
+    const url = new URL("/public-search", GAMMA_API_BASE);
+    url.searchParams.set("q", q);
+    url.searchParams.set("page", "1");
+    url.searchParams.set("limit_per_type", "30");
+    url.searchParams.set("limit", "30");
+    url.searchParams.set("type", "events");
+    url.searchParams.set("events_status", "active");
+    if (sort === "trending") {
+      url.searchParams.set("sort", "volume_24hr");
+    }
+
+    try {
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        headers: { accept: "application/json" },
+        next: { revalidate: 15 },
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        return { events: [], error: `Failed to search events (${res.status}): ${text || res.statusText}` };
+      }
+
+      const data = await res.json();
+      const events = (data && Array.isArray(data.events) ? (data.events as PolymarketEventsResponse) : []) as PolymarketEventsResponse;
+      return { events };
+    } catch (err) {
+      return { events: [], error: err instanceof Error ? err.message : "Unknown error" };
+    }
+  }
+
+  // Otherwise, list events with sorting and optional tag filter
+  const url = new URL("/events", GAMMA_API_BASE);
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("order", sort === "new" ? "createdAt" : "volume24hr");
   url.searchParams.set("ascending", "false");

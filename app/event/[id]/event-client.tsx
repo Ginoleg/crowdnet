@@ -65,7 +65,7 @@ export default function EventClient({
 
         <div className="p-0">
           <div className="px-0 pb-2">
-            <h2 className="text-base font-semibold">Markets</h2>
+            <h2 className="text-base font-semibold">Outcomes</h2>
           </div>
           <div className="px-0">
             {markets.length === 0 ? (
@@ -82,6 +82,16 @@ export default function EventClient({
                 }}
               />
             )}
+          </div>
+          <div>
+            <div className="px-0 pb-2 pt-8">
+              <h2 className="text-base font-semibold">Description</h2>
+            </div>
+            {event.description ? (
+              <p className="text-sm leading-6 whitespace-pre-line">
+                {event.description}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

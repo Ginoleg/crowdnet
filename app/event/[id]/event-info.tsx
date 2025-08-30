@@ -41,29 +41,18 @@ export default function EventInfo({ event }: EventInfoProps) {
             <div className="w-16 h-16 rounded-md bg-muted" />
           )}
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold leading-6 tracking-[-0.2px]">
-              {event.title}
-            </h1>
-            {/* {event.subtitle ? (
-              <p className="text-sm text-muted-foreground mt-1">
-                {event.subtitle}
-              </p>
-            ) : null} */}
+            <h1 className="text-2xl font-semibold leading-9">{event.title}</h1>
+            <div className="px-0">
+              <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                <span>Volume: {formatUsd(event.volume ?? 0)}</span>
+                <span>•</span>
+                <span>
+                  Resolution:{" "}
+                  {formatDateTime(event.endDate || event.closedTime)}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      <div className="px-0">
-        {event.description ? (
-          <p className="text-sm leading-6 whitespace-pre-line">
-            {event.description}
-          </p>
-        ) : null}
-        <div className="mt-4 text-xs text-muted-foreground flex items-center gap-2">
-          <span>Market cap: {formatUsd(event.openInterest ?? 0)}</span>
-          <span>•</span>
-          <span>
-            Resolution: {formatDateTime(event.endDate || event.closedTime)}
-          </span>
         </div>
       </div>
     </div>

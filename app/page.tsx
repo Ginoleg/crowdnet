@@ -22,6 +22,7 @@ export default async function Home({ searchParams = {} }: PageProps) {
     "crypto",
     "tech",
     "economy",
+    "culture",
   ]);
   const selectedCategory = (
     allowedSet.has(categoryParam || "")
@@ -29,8 +30,12 @@ export default async function Home({ searchParams = {} }: PageProps) {
       : undefined
   ) as EventsCategory | undefined;
 
+  const rawQ = (searchParams?.["q"] ?? "") as string | string[];
+  const q = Array.isArray(rawQ) ? rawQ[0] : rawQ;
+
   const { events, error } = await getEvents(selectedSort, {
     category: selectedCategory,
+    q,
   });
 
   return (
