@@ -30,7 +30,7 @@ export default async function EventPage({ params }: PageProps) {
 
   return (
     <div className="font-sans items-center justify-items-center min-h-screen">
-      <main className="w-full">
+      <main className="w-full px-3">
         <section className="w-full max-w-5xl mx-auto gap-6 py-6">
           <EventClient event={event} markets={markets} />
         </section>

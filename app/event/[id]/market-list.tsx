@@ -38,12 +38,14 @@ function toPercent(value: number | undefined | null): string {
 export type MarketListProps = {
   markets: PolymarketMarket[];
   selectedMarketId?: string;
+  selectedOutcome?: BinaryOutcome | null;
   onSelect: (marketId: string, outcome?: BinaryOutcome) => void;
 };
 
 export default function MarketList({
   markets,
   selectedMarketId,
+  selectedOutcome,
   onSelect,
 }: MarketListProps) {
   return (
@@ -52,16 +54,13 @@ export default function MarketList({
         const names = parseOutcomeNames(mkt.shortOutcomes || mkt.outcomes);
         const prices = parseOutcomePrices(mkt.outcomePrices);
         const pctA = prices[0];
-        const isSelected = selectedMarketId === mkt.id;
+        const isYesSelected =
+          selectedMarketId === mkt.id && selectedOutcome === "YES";
+        const isNoSelected =
+          selectedMarketId === mkt.id && selectedOutcome === "NO";
 
         return (
-          <div
-            key={mkt.id}
-            className={`py-2 rounded-md cursor-pointer -mx-3 px-3 hover:bg-muted/30 ${
-              isSelected ? "ring ring-inset ring-blue-300 bg-blue-50/50" : ""
-            }`}
-            onClick={() => onSelect(mkt.id, "YES")}
-          >
+          <div key={mkt.id} className="py-3 border-t mb-0 last:border-b">
             <div className="flex items-center justify-between gap-3">
               <div className="flex flex-col min-w-0 gap-1.5">
                 <div className="flex items-center gap-3">
@@ -80,16 +79,30 @@ export default function MarketList({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-600"
-                  onClick={() => onSelect(mkt.id, "YES")}
+                  className={`h-8 px-3 ${
+                    isYesSelected
+                      ? "bg-emerald-500 text-white hover:bg-emerald-600 hover:text-white"
+                      : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-800"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(mkt.id, "YES");
+                  }}
                 >
                   {names[0] || "Yes"}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-500"
-                  onClick={() => onSelect(mkt.id, "NO")}
+                  className={`h-8 px-3 ${
+                    isNoSelected
+                      ? "bg-rose-500 text-white hover:bg-rose-600 hover:text-white"
+                      : "bg-rose-100 text-rose-700 hover:bg-rose-200 hover:text-rose-800"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(mkt.id, "NO");
+                  }}
                 >
                   {names[1] || "No"}
                 </Button>

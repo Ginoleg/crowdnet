@@ -57,7 +57,7 @@ export default function EventClient({
   }, [markets, selectedMarketId]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-40 lg:pb-0">
       <div className="lg:col-span-2 space-y-6">
         <div className="p-0">
           <EventInfo event={event} />
@@ -76,6 +76,7 @@ export default function EventClient({
               <MarketList
                 markets={markets}
                 selectedMarketId={selectedMarket?.id || ""}
+                selectedOutcome={selectedOutcome}
                 onSelect={(marketId, outcome) => {
                   setSelectedMarketId(marketId);
                   setSelectedOutcome(outcome ?? null);
@@ -96,7 +97,7 @@ export default function EventClient({
         </div>
       </div>
 
-      <aside className="lg:col-span-1 lg:sticky lg:top-16 h-fit">
+      <aside className="hidden lg:block lg:col-span-1 lg:sticky lg:top-16 h-fit">
         <div className="p-0">
           <div className="px-0 pb-2">
             <h2 className="text-base font-semibold">Trade</h2>
@@ -107,12 +108,18 @@ export default function EventClient({
               selectedOutcome={selectedOutcome}
               onSelectOutcome={(o) => setSelectedOutcome(o)}
             />
-            <div className="mt-4 text-xs text-muted-foreground">
-              Trade on the selected market.
-            </div>
           </div>
         </div>
       </aside>
+
+      {/* Mobile fixed trade panel */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4">
+        <TradePanel
+          market={selectedMarket}
+          selectedOutcome={selectedOutcome}
+          onSelectOutcome={(o) => setSelectedOutcome(o)}
+        />
+      </div>
     </div>
   );
 }

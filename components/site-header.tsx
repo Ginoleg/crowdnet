@@ -66,7 +66,7 @@ export function SiteHeader() {
   }, [search]);
 
   useEffect(() => {
-    const CONDENSE_THRESHOLD = 68; // px
+    const CONDENSE_THRESHOLD = 68000; // px
     const EXPAND_THRESHOLD = 8; // px
     let ticking = false;
     const onScroll = () => {
@@ -169,12 +169,15 @@ export function SiteHeader() {
                   <DialogTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="text-foreground/50 hover:text-foreground h-8"
+                      className="text-foreground/50 hover:text-foreground h-8 px-3"
                     >
                       What's Crowdbet?
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="bg-gradient-to-b from-rose-50/90 to-white/70 backdrop-blur-sm text-black sm:max-w-xl shadow-none rounded-[20px]">
+                  <DialogContent
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                    className="bg-gradient-to-b from-rose-50/90 to-white/40 backdrop-blur-sm text-black sm:max-w-xl shadow-none rounded-[20px] border-neutral-300"
+                  >
                     <DialogHeader className="gap-3">
                       <DialogTitle className="text-4xl text-center font-bold tracking-tight">
                         Crowdbet

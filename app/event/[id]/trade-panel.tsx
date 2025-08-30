@@ -72,34 +72,46 @@ export default function TradePanel({
       <div className="text-sm font-medium leading-5">
         {market.groupItemTitle?.trim() || market.question}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-1/2">
         <Button
           size="sm"
-          variant={selectedOutcome === "YES" ? "default" : "outline"}
+          variant={selectedOutcome === "YES" ? "default" : "ghost"}
           onClick={() => onSelectOutcome?.("YES")}
-          className={selectedOutcome === "YES" ? "bg-emerald-600" : ""}
+          className={`w-full h-9 shadow-none flex-shrink ${
+            selectedOutcome === "YES"
+              ? "bg-emerald-500 hover:bg-emerald-500"
+              : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-800 grayscale-50"
+          }`}
         >
           {names[0] || "Yes"}{" "}
           {typeof prices[0] === "number" ? `· ${toPercent(prices[0])}` : ""}
         </Button>
         <Button
           size="sm"
-          variant={selectedOutcome === "NO" ? "default" : "outline"}
+          variant={selectedOutcome === "NO" ? "default" : "ghost"}
           onClick={() => onSelectOutcome?.("NO")}
-          className={selectedOutcome === "NO" ? "bg-rose-500" : ""}
+          className={`w-full h-9 shadow-none flex-shrink ${
+            selectedOutcome === "NO"
+              ? "bg-rose-500 hover:bg-rose-500"
+              : "bg-rose-100 text-rose-700 hover:bg-rose-200 hover:text-rose-800 grayscale-50"
+          }`}
         >
           {names[1] || "No"}{" "}
           {typeof prices[1] === "number" ? `· ${toPercent(prices[1])}` : ""}
         </Button>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col items-center gap-2">
         <Input
           placeholder="Amount (USD)"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-40"
+          className="w-full"
         />
-        <Button size="sm" disabled={!selectedOutcome || !amount}>
+        <Button
+          className="w-full"
+          size="sm"
+          disabled={!selectedOutcome || !amount}
+        >
           Mock Trade
         </Button>
       </div>
