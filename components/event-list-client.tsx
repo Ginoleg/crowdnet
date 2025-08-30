@@ -101,9 +101,14 @@ export default function ClientEventList({ events }: ClientEventListProps) {
                       ) : (
                         <div className="w-10 h-10 rounded-md bg-muted" />
                       )}
-                      <CardTitle className="text-base font-semibold tracking-[-0.2px] leading-5 line-clamp-2">
-                        {event.title}
-                      </CardTitle>
+                      <Link
+                        href={`/event/${event.id}`}
+                        className="min-w-0 group"
+                      >
+                        <CardTitle className="text-base font-semibold tracking-[-0.2px] leading-5 line-clamp-2 group-hover:underline">
+                          {event.title}
+                        </CardTitle>
+                      </Link>
                     </div>
                   </CardHeader>
                   <CardContent className="px-0">

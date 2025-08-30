@@ -1,4 +1,4 @@
-import { getEvents } from "@/actions/events";
+import { getEvents, type EventsCategory } from "@/actions/events";
 import ClientEventList from "@/components/event-list-client";
 
 type PageProps = {
@@ -9,7 +9,29 @@ export default async function Home({ searchParams = {} }: PageProps) {
   const rawSort = (searchParams?.["sort"] ?? "") as string | string[];
   const sort = Array.isArray(rawSort) ? rawSort[0] : rawSort;
   const selectedSort = sort === "new" ? "new" : "trending";
-  const { events, error } = await getEvents(selectedSort);
+
+  const rawCategory = (searchParams?.["category"] ?? "") as string | string[];
+  const categoryParam = (
+    Array.isArray(rawCategory) ? rawCategory[0] : rawCategory
+  )?.toLowerCase();
+
+  const allowedSet = new Set([
+    "all",
+    "politics",
+    "sports",
+    "crypto",
+    "tech",
+    "economy",
+  ]);
+  const selectedCategory = (
+    allowedSet.has(categoryParam || "")
+      ? (categoryParam as EventsCategory)
+      : undefined
+  ) as EventsCategory | undefined;
+
+  const { events, error } = await getEvents(selectedSort, {
+    category: selectedCategory,
+  });
 
   return (
     <div className="font-sans items-center justify-items-center min-h-screen">

@@ -22,12 +22,8 @@ export function SortTabs() {
   }
 
   return (
-    <div className="w-full">
-      <Tabs
-        value={sort}
-        onValueChange={onValueChange}
-        className="w-full py-1 max-w-5xl mx-auto"
-      >
+    <div className="">
+      <Tabs value={sort} onValueChange={onValueChange} className="py-1">
         <TabsList className="!bg-transparent">
           <TabsTrigger value="trending" className="h-8 !bg-transparent">
             Trending

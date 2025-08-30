@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import Link from "next/link";
+import { CategoriesTabs } from "@/components/categories-tabs";
 
 function XLogo() {
   return (
@@ -100,7 +102,7 @@ export function SiteHeader() {
   }, [condensed]);
 
   return (
-    <nav className="w-full sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="w-full sticky top-0 z-50 border-black/[6%] border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div
         ref={containerRef}
         className="relative w-full"
@@ -119,9 +121,11 @@ export function SiteHeader() {
           <div className="flex items-center justify-center h-14 px-3">
             <div className="flex items-center justify-between max-w-5xl w-full">
               <div className="flex items-center gap-4">
-                <h1 className="text-xl font-bold tracking-[-1px] -mt-[2px]">
-                  Crowdbet
-                </h1>
+                <Link href="/">
+                  <h1 className="text-xl font-bold tracking-[-1px] -mt-[2px]">
+                    Crowdbet
+                  </h1>
+                </Link>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button
@@ -162,8 +166,12 @@ export function SiteHeader() {
               </Button>
             </div>
           </div>
-          <div className="px-3">
-            <SortTabs />
+          <div className="w-full px-3 overflow-x-scroll scrollbar-hide">
+            <div className="flex items-center max-w-5xl mx-auto">
+              <SortTabs />
+              <div className="border-l border-black/[9%] mx-5 h-4"></div>
+              <CategoriesTabs />
+            </div>
           </div>
         </div>
 
@@ -178,15 +186,22 @@ export function SiteHeader() {
           }
         >
           <div className="flex items-center justify-center h-12 px-3 border-t">
-            <div className="flex items-center justify-between w-full max-w-5xl gap-6">
+            <div className="flex items-center justify-between w-full max-w-5xl gap-6 overflow-x-scroll scrollbar-hide">
               <div className="shrink-0 pb-[1px]">
                 <span className="text-lg font-bold tracking-[-1px] mt-3 animate-in">
                   Crowdbet
                 </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <SortTabs />
+              <div className="px-3 shrink-0">
+                <div className="flex items-center mx-auto">
+                  <SortTabs />
+                  <div className="border-l border-black/[9%] mx-5 h-4"></div>
+                  <CategoriesTabs />
+                </div>
               </div>
+              <Button className="bg-black text-white h-8 hover:bg-black hover:opacity-80">
+                Connect
+              </Button>
             </div>
           </div>
         </div>

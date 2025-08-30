@@ -1,6 +1,6 @@
 "use server";
 
-import type { PolymarketEventsResponse, PolymarketEvent } from "@/types/events";
+import type { PolymarketEventsResponse, PolymarketEvent, Tag } from "@/types/events";
 
 const GAMMA_API_BASE = "https://gamma-api.polymarket.com";
 
@@ -11,17 +11,39 @@ export type FetchEventsResult = {
 
 export type EventsSort = "trending" | "new";
 
-export async function getEvents(sort: EventsSort = "trending"): Promise<FetchEventsResult> {
+export type EventsCategory =
+  | "politics"
+  | "sports"
+  | "crypto"
+  | "tech"
+  | "economy"
+  | "culture"
+  | "all";
+
+export async function getEvents(
+  sort: EventsSort = "trending",
+  opts?: { category?: EventsCategory; offset?: number; limit?: number }
+): Promise<FetchEventsResult> {
   const url = new URL("/events", GAMMA_API_BASE);
-  url.searchParams.set("limit", "30");
+  const limit = Math.max(1, Math.min(100, opts?.limit ?? 30));
+  url.searchParams.set("limit", String(limit));
   url.searchParams.set("order", sort === "new" ? "createdAt" : "volume24hr");
   url.searchParams.set("ascending", "false");
+
+  if (typeof opts?.offset === "number" && opts.offset >= 0) {
+    url.searchParams.set("offset", String(opts.offset));
+  }
+
+  const category = opts?.category && opts.category !== "all" ? opts.category : undefined;
+  if (category) {
+    url.searchParams.set("tag_slug", category);
+  }
 
   try {
     const res = await fetch(url.toString(), {
       method: "GET",
       headers: {
-        "accept": "application/json",
+        accept: "application/json",
       },
       next: { revalidate: 30 },
     });
@@ -57,7 +79,7 @@ export async function getEventById(id: string): Promise<FetchEventResult> {
   try {
     const res = await fetch(url.toString(), {
       method: "GET",
-      headers: { "accept": "application/json" },
+      headers: { accept: "application/json" },
       next: { revalidate: 30 },
     });
 
