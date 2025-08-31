@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import type { BinaryOutcome, DbEvent, DbMarket } from "@/types/events";
 import EventInfo from "@/app/event/[id]/event-info";
 import MarketList from "@/app/event/[id]/market-list";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
-import { parseEther } from "viem";
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
+import { parseEther, decodeEventLog, type Log } from "viem";
 import EventFactoryABI from "@/abis/EventFactory.json";
 
 type DraftMarket = {
@@ -28,13 +28,55 @@ export default function CreateEventForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [emittedEvents, setEmittedEvents] = useState<any[]>([]);
   const router = useRouter();
 
   // Contract interaction hooks
   const { writeContract, isPending: isContractPending, data: contractTxHash, error: contractError } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isTxError, error: txError } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isTxError, error: txError, data: txReceipt } = useWaitForTransactionReceipt({
     hash: contractTxHash,
   });
+  const publicClient = usePublicClient();
+
+  // Function to parse transaction logs and extract events
+  const parseTransactionEvents = async (txHash: string) => {
+    if (!publicClient) return [];
+    
+    try {
+      // Get transaction receipt
+      const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
+      
+      // Parse logs to extract events
+      const parsedEvents: any[] = [];
+      
+      for (const log of receipt.logs) {
+        try {
+          // Try to decode the log using the EventFactory ABI
+          const decodedLog = decodeEventLog({
+            abi: EventFactoryABI.abi,
+            data: log.data,
+            topics: log.topics,
+          });
+          
+          parsedEvents.push({
+            eventName: decodedLog.eventName,
+            args: decodedLog.args,
+            blockNumber: log.blockNumber,
+            transactionHash: log.transactionHash,
+            logIndex: log.logIndex,
+          });
+        } catch (error) {
+          // Log might not be from our contract or might be a different event
+          console.log("Could not decode log:", error);
+        }
+      }
+      
+      return parsedEvents;
+    } catch (error) {
+      console.error("Error parsing transaction events:", error);
+      return [];
+    }
+  };
 
   // Handle transaction completion
   useEffect(() => {
@@ -42,8 +84,31 @@ export default function CreateEventForm() {
       setError(null); // Clear any previous errors
       setSuccess(`Event created successfully! Transaction: ${contractTxHash}`);
       console.log("Event created successfully! Transaction hash:", contractTxHash);
-      // Show success message or redirect
-      // router.push(`/event/${eventId}`); // Would need to parse eventId from logs
+      
+      // Parse and log emitted events
+      parseTransactionEvents(contractTxHash).then((events) => {
+        console.log("📋 Emitted Events:", events);
+        setEmittedEvents(events);
+        
+        // Log each event individually for better readability
+        events.forEach((event, index) => {
+          console.log(`🎯 Event ${index + 1}:`, {
+            name: event.eventName,
+            args: event.args,
+            blockNumber: event.blockNumber?.toString(),
+            logIndex: event.logIndex
+          });
+        });
+        
+        // If we have an EventCreated event, we could extract the eventId
+        const eventCreatedLog = events.find(e => e.eventName === 'EventCreated');
+        if (eventCreatedLog && eventCreatedLog.args?.eventId) {
+          console.log("🆔 Created Event ID:", eventCreatedLog.args.eventId.toString());
+          // router.push(`/event/${eventCreatedLog.args.eventId}`);
+        }
+      }).catch((error) => {
+        console.error("Error parsing events:", error);
+      });
     }
   }, [isConfirmed, contractTxHash, router]);
 
@@ -369,6 +434,32 @@ export default function CreateEventForm() {
                 {isTxError && <span className="text-red-600 ml-2">✗ Failed</span>}
               </div>
             )}
+            {emittedEvents.length > 0 && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                <h4 className="text-sm font-medium text-green-800 mb-2">🎯 Emitted Events:</h4>
+                <div className="space-y-2">
+                  {emittedEvents.map((event, index) => (
+                    <div key={index} className="text-xs">
+                      <div className="font-medium text-green-700">{event.eventName}</div>
+                      <div className="text-green-600 mt-1">
+                        {Object.entries(event.args || {}).map(([key, value]) => (
+                          <div key={key} className="ml-2">
+                            <span className="font-medium">{key}:</span> {
+                              typeof value === 'bigint' ? value.toString() : 
+                              Array.isArray(value) ? `[${value.map(v => typeof v === 'bigint' ? v.toString() : String(v)).join(', ')}]` :
+                              String(value)
+                            }
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-green-500 text-[10px] mt-1">
+                        Block: {event.blockNumber?.toString()} | Log Index: {event.logIndex}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </form>
       </aside>
@@ -491,6 +582,32 @@ export default function CreateEventForm() {
                 Transaction: {contractTxHash.slice(0, 10)}...{contractTxHash.slice(-8)}
                 {isConfirmed && <span className="text-green-600 ml-2">✓ Success</span>}
                 {isTxError && <span className="text-red-600 ml-2">✗ Failed</span>}
+              </div>
+            )}
+            {emittedEvents.length > 0 && (
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                <h4 className="text-sm font-medium text-green-800 mb-2">🎯 Emitted Events:</h4>
+                <div className="space-y-2">
+                  {emittedEvents.map((event, index) => (
+                    <div key={index} className="text-xs">
+                      <div className="font-medium text-green-700">{event.eventName}</div>
+                      <div className="text-green-600 mt-1">
+                        {Object.entries(event.args || {}).map(([key, value]) => (
+                          <div key={key} className="ml-2">
+                            <span className="font-medium">{key}:</span> {
+                              typeof value === 'bigint' ? value.toString() : 
+                              Array.isArray(value) ? `[${value.map(v => typeof v === 'bigint' ? v.toString() : String(v)).join(', ')}]` :
+                              String(value)
+                            }
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-green-500 text-[10px] mt-1">
+                        Block: {event.blockNumber?.toString()} | Log Index: {event.logIndex}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
