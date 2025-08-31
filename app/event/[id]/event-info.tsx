@@ -23,23 +23,45 @@ function formatDateTime(input?: string): string {
   return d.toLocaleString();
 }
 
+function isValidHttpUrl(maybeUrl?: string): boolean {
+  if (!maybeUrl) return false;
+  try {
+    const url = new URL(maybeUrl);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export default function EventInfo({ event }: EventInfoProps) {
-  const thumbnail = event.image || event.featuredImage || event.icon;
+  const thumbnailCandidate = event.image || event.featuredImage || event.icon;
+  const hasValidThumbnail = isValidHttpUrl(thumbnailCandidate);
+  const hasAnyThumbnail = Boolean(thumbnailCandidate);
   return (
     <div className="p-0">
       <div className="px-0 pb-4">
         <div className="flex items-start gap-3">
-          {thumbnail ? (
-            <Image
-              src={thumbnail}
-              alt={event.title}
-              width={64}
-              height={64}
-              className="rounded-md object-cover bg-neutral-200 shrink-0 h-16 w-16"
-            />
-          ) : (
-            <div className="w-16 h-16 rounded-md bg-muted" />
-          )}
+          <div className="relative shrink-0 h-16 w-16">
+            {hasAnyThumbnail ? (
+              hasValidThumbnail ? (
+                <Image
+                  src={thumbnailCandidate as string}
+                  alt={event.title}
+                  width={64}
+                  height={64}
+                  className="rounded-md object-cover bg-neutral-200 h-16 w-16"
+                />
+              ) : (
+                <div className="h-full w-full rounded-md bg-muted flex items-center justify-center">
+                  <span className="text-[10px] text-red-600">
+                    Invalid image URL
+                  </span>
+                </div>
+              )
+            ) : (
+              <div className="h-full w-full rounded-md bg-muted" />
+            )}
+          </div>
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold leading-9">{event.title}</h1>
             <div className="px-0">

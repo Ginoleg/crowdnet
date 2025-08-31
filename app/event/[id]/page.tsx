@@ -1,4 +1,4 @@
-import { getEventById } from "@/actions/events";
+import { getDbEventById } from "@/actions/db-events";
 import type { PolymarketMarket } from "@/types/events";
 import EventClient from "./event-client";
 
@@ -8,7 +8,7 @@ export type PageProps = {
 
 export default async function EventPage({ params }: PageProps) {
   const { id } = params;
-  const { event, error } = await getEventById(id);
+  const { event, error } = await getDbEventById(id);
 
   if (error) {
     return (

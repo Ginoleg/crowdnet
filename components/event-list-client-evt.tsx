@@ -60,11 +60,15 @@ function isValidHttpUrl(maybeUrl?: string): boolean {
   }
 }
 
-export type ClientEventListProps = {
+export type ClientEventListEvtProps = {
   events: PolymarketEvent[];
+  hrefBase?: string;
 };
 
-export default function ClientEventList({ events }: ClientEventListProps) {
+export default function ClientEventListEvt({
+  events,
+  hrefBase = "/evt",
+}: ClientEventListEvtProps) {
   const setSelectedTrade = useSetAtom(selectedTradeAtom);
   const router = useRouter();
 
@@ -125,7 +129,7 @@ export default function ClientEventList({ events }: ClientEventListProps) {
                         )}
                       </div>
                       <Link
-                        href={`/event/${event.id}`}
+                        href={`${hrefBase}/${event.id}`}
                         className="min-w-0 group"
                       >
                         <CardTitle className="text-base font-semibold tracking-[-0.2px] leading-5 line-clamp-2 group-hover:underline">
@@ -174,7 +178,7 @@ export default function ClientEventList({ events }: ClientEventListProps) {
                                       marketId: mkt.id,
                                       outcome: "YES",
                                     });
-                                    router.push(`/event/${event.id}`);
+                                    router.push(`${hrefBase}/${event.id}`);
                                   }}
                                 >
                                   {names[0] || "Yes"}
@@ -189,7 +193,7 @@ export default function ClientEventList({ events }: ClientEventListProps) {
                                       marketId: mkt.id,
                                       outcome: "NO",
                                     });
-                                    router.push(`/event/${event.id}`);
+                                    router.push(`${hrefBase}/${event.id}`);
                                   }}
                                 >
                                   {names[1] || "No"}

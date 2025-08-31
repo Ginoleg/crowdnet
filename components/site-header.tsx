@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { SortTabs } from "@/components/sort-tabs";
 import {
@@ -15,8 +15,8 @@ import Link from "next/link";
 import { CategoriesTabs } from "@/components/categories-tabs";
 import { WalletConnect } from "@/components/wallet-connect";
 import { Input } from "@/components/ui/input";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { Search, SquarePen } from "lucide-react";
 
 function XLogo() {
   return (
@@ -38,8 +38,14 @@ export function SiteHeader() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const [search, setSearch] = useState<string>("");
   const debounceRef = useRef<number | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetch("/api/username").then((r) => setAuthenticated(r.ok));
+  }, []);
 
   useEffect(() => {
     const q = (searchParams.get("q") || "").toString();
@@ -49,8 +55,12 @@ export function SiteHeader() {
   useEffect(() => {
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
       const trimmed = search.trim();
+      const isHome = pathname === "/";
+      // Avoid redirecting away from non-home routes on initial mount with empty search
+      if (!trimmed && !isHome) return;
+
+      const params = new URLSearchParams(searchParams.toString());
       if (trimmed) params.set("q", trimmed);
       else params.delete("q");
       const query = params.toString();
@@ -59,7 +69,7 @@ export function SiteHeader() {
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [search]);
+  }, [search, pathname, searchParams]);
 
   return (
     <nav className="w-full sticky top-0 z-50 border-black/[6%] border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
@@ -89,48 +99,59 @@ export function SiteHeader() {
                   <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30" />
                 </div>
               </div>
-              <div className="flex items-center shrink-0">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="text-foreground/50 hover:text-foreground h-8 px-3 -mr-4"
-                    >
-                      What's Crowdbet?
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                    className="bg-transparent backdrop-blur-sm text-black sm:max-w-[640px] shadow-none rounded-[20px] border-none p-0 overflow-hidden"
+              <div className="flex items-center shrink-0 gap-2">
+                {authenticated ? (
+                  <Button
+                    variant="ghost"
+                    className="h-8 px-3 -mr-4 gap-1"
+                    onClick={() => router.push("/event/create")}
                   >
-                    <div className="bg-gradient-to-r from-indigo-300/80 via-rose-300/60 to-orange-200/60">
-                      <div className="bg-gradient-to-b from-white/10 via-white/50 to-white p-20">
-                        <DialogHeader className="gap-3">
-                          <DialogTitle className="text-5xl text-center font-bold tracking-tight">
-                            Crowdbet
-                          </DialogTitle>
-                          <DialogDescription className="text-black text-lg items-center text-center">
-                            The social prediction market for <XLogo /> users
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-8">
-                          <ol className="list-decimal pl-5 space-y-1 text-base pt-8">
-                            <li>Connect wallet to create account</li>
-                            <li>Verify Twitter account</li>
-                            <li>Publish events or trade existing ones</li>
-                          </ol>
-                          <div className="text-xs text-black/70 space-y-1 pt-6">
-                            <p>The publisher is the oracle.</p>
-                            <p>
-                              Publisher takes 1% fee on traded volume, so does
-                              the platform.
-                            </p>
+                    <SquarePen className="h-4 w-4" />
+                    Create event
+                  </Button>
+                ) : (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="text-foreground/50 hover:text-foreground h-8 px-3 -mr-4"
+                      >
+                        What's Crowdbet?
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                      className="bg-transparent backdrop-blur-sm text-black sm:max-w-[640px] shadow-none rounded-[20px] border-none p-0 overflow-hidden"
+                    >
+                      <div className="bg-gradient-to-r from-indigo-300/80 via-rose-300/60 to-orange-200/60">
+                        <div className="bg-gradient-to-b from-white/10 via-white/50 to-white p-20">
+                          <DialogHeader className="gap-3">
+                            <DialogTitle className="text-5xl text-center font-bold tracking-tight">
+                              Crowdbet
+                            </DialogTitle>
+                            <DialogDescription className="text-black text-lg items-center text-center">
+                              The social prediction market for <XLogo /> users
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-8">
+                            <ol className="list-decimal pl-5 space-y-1 text-base pt-8">
+                              <li>Connect wallet to create account</li>
+                              <li>Verify Twitter account</li>
+                              <li>Publish events or trade existing ones</li>
+                            </ol>
+                            <div className="text-xs text-black/70 space-y-1 pt-6">
+                              <p>The publisher is the oracle.</p>
+                              <p>
+                                Publisher takes 1% fee on traded volume, so does
+                                the platform.
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+                )}
                 <WalletConnect />
               </div>
             </div>
