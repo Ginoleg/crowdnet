@@ -1,8 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
+import { useReadContract } from "wagmi";
 import type { DbMarket } from "@/types/events";
 import type { BinaryOutcome } from "@/types/events";
 import { Button } from "@/components/ui/button";
+import BinaryPredictionMarketABI from "@/abis/BinaryPredictionMarket.json";
 
 function defaultOutcomeNames(): string[] {
   return ["Yes", "No"];
@@ -31,7 +34,29 @@ export default function MarketList({
     <div className="space-y-1">
       {markets.map((mkt) => {
         const names = defaultOutcomeNames();
-        const pctA = mkt.last_price ?? 0.5;
+        
+        // Read the current YES price from the contract for this market
+        const { data: contractYesPrice } = useReadContract({
+          address: mkt.hex_address as `0x${string}`,
+          abi: BinaryPredictionMarketABI.abi,
+          functionName: 'getYesPrice',
+          query: {
+            enabled: !!mkt.hex_address,
+          },
+        });
+
+        // Calculate YES price using contract data or fallback to last_price
+        const yesPrice = useMemo(() => {
+          if (contractYesPrice) {
+            // Convert from wei (1e18) to decimal (0-1)
+            return Number(contractYesPrice) / 1e18;
+          } else {
+            // Fallback to last_price from database
+            return typeof mkt.last_price === "number" ? mkt.last_price : 0.5;
+          }
+        }, [contractYesPrice, mkt.last_price]);
+
+        const pctA = yesPrice;
         const isYesSelected =
           selectedMarketId === String(mkt.id) && selectedOutcome === "YES";
         const isNoSelected =
