@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase/server-client";
 import { jwtVerify } from "jose";
+import { moderateEvent } from "@/lib/moderation";
 
 const secret = new TextEncoder().encode(process.env.SESSION_SECRET!);
 
@@ -74,6 +75,23 @@ export async function POST(req: Request) {
   const markets = Array.isArray(body?.markets) ? body.markets : [];
 
   if (!name) return new Response("name required", { status: 400 });
+
+  // Moderation gate
+  try {
+    const moderation = await moderateEvent({
+      title: name,
+      description,
+      markets,
+    });
+    if (moderation.decision !== "ALLOW") {
+      return new Response(
+        JSON.stringify({ error: "content_not_allowed", message: "Content not allowed." }),
+        { status: 422, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  } catch (e) {
+    return new Response("moderation failed", { status: 502 });
+  }
 
   const { data: createdEvent, error } = await supabaseAdmin
     .from("events")

@@ -8,6 +8,11 @@ export type EventInfoProps = {
   markets?: DbMarket[];
 };
 
+function formatNumber(value: number | undefined | null): string {
+  const num = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat("en-US").format(num);
+}
+
 function formatDateTime(input?: string | null): string {
   if (!input) return "TBD";
   const d = new Date(input);
@@ -33,6 +38,10 @@ export default function EventInfo({ event, markets = [] }: EventInfoProps) {
     .map((m) => m.open_until)
     .filter(Boolean)
     .sort((a, b) => (a! < b! ? -1 : a! > b! ? 1 : 0))[0];
+  const tradedVolume =
+    typeof event.traded_volume === "number"
+      ? event.traded_volume
+      : markets.reduce((sum, m) => sum + (Number(m.traded_volume) || 0), 0);
 
   return (
     <div className="p-0">
@@ -63,7 +72,7 @@ export default function EventInfo({ event, markets = [] }: EventInfoProps) {
             <h1 className="text-2xl font-semibold leading-9">{event.name}</h1>
             <div className="px-0">
               <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                <span>Created: {formatDateTime(event.created_at)}</span>
+                <span>Traded vol: {formatNumber(tradedVolume)}</span>
                 <span>•</span>
                 <span>Resolution: {formatDateTime(earliestOpenUntil)}</span>
               </div>

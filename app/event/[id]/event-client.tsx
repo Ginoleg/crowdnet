@@ -99,7 +99,7 @@ export default function EventClient({
         </div>
       </div>
 
-      <aside className="hidden lg:block lg:col-span-1 lg:sticky lg:top-16 h-fit">
+      <aside className="hidden lg:block lg:col-span-1 lg:sticky lg:top-[116px] h-fit">
         <div className="p-0">
           <div className="px-0 pb-2">
             <h2 className="text-base font-semibold">Trade</h2>
