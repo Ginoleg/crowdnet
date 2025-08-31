@@ -32,15 +32,13 @@ function buildPrompt(title: string, description: string, marketTitles: string[])
       ? "None provided"
       : marketTitles.map((t, i) => `${i + 1}. Title: ${t}`).join("\n");
 
-  return `You are a strict content moderation system for an events platform.
+  return `You are a content moderation system for an events platform.
 
 Analyze the following event submission and classify it. 
 Your task is to detect if it contains any of these categories:
-- Illegal activity
-- Violence or threats
+- Violence incitement or threats
 - Suicide or self-harm
 - Sexual or sexually explicit content
-- Anything else unsafe or that could cause legal/trust issues
 
 Rules:
 - If any prohibited content is detected → "BLOCK"
@@ -52,7 +50,7 @@ Return your answer ONLY in this JSON format:
 
 {
   "decision": "ALLOW | REVIEW | BLOCK",
-  "category": "<one of: Illegal, Violence, Suicide, Sexual, OtherUnsafe, None>",
+  "category": "<one of: Violence, Suicide, Sexual, OtherUnsafe, None>",
   "rationale": "<short one-sentence reason>"
 }
 
@@ -102,7 +100,7 @@ export async function POST(req: Request) {
   try {
     const { text } = await generateText({
       model: "openai/gpt-5-nano",
-      system: "You are a strict content moderation system for an events platform.",
+      system: "You are content moderation system for an events platform.",
       prompt,
     });
 
