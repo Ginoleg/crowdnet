@@ -101,7 +101,7 @@ export async function POST(req: Request) {
 
   try {
     const { text } = await generateText({
-      model: "openai/gpt-5-mini",
+      model: "openai/gpt-5-nano",
       system: "You are a strict content moderation system for an events platform.",
       prompt,
     });

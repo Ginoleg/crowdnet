@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,15 +8,92 @@ import { Button } from "@/components/ui/button";
 import type { BinaryOutcome, DbEvent, DbMarket } from "@/types/events";
 import EventInfo from "@/app/event/[id]/event-info";
 import MarketList from "@/app/event/[id]/market-list";
-import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
-import { parseEther, decodeEventLog, type Log } from "viem";
+import { useWriteContract } from "wagmi";
+import { waitForTransactionReceipt } from "wagmi/actions";
+import { parseEther, decodeEventLog } from "viem";
 import EventFactoryABI from "@/abis/EventFactory.json";
+import { wagmiConfig } from "@/lib/wagmi";
 
 type DraftMarket = {
   name: string;
   is_resolved: boolean;
   open_until: string; // YYYY-MM-DD
 };
+
+// Helpers (logic)
+function buildMarketConfigs(markets: DraftMarket[]) {
+  return markets.map((market) => {
+    const endDate = new Date(market.open_until);
+    const now = new Date();
+    const durationSeconds = Math.floor(
+      (endDate.getTime() - now.getTime()) / 1000
+    );
+    return {
+      question: market.name,
+      duration: BigInt(Math.max(durationSeconds, 0)),
+      fee: BigInt(100),
+      seedCollateral: parseEther("0.000001"),
+    } as const;
+  });
+}
+
+function parseMarketAddressesFromReceipt(receipt: any): string[] {
+  const eventFactoryAddress =
+    "0x6450031EC3DB3E802a753b03Ea7717F551AFACE7" as const;
+  const addresses: string[] = [];
+  for (const log of receipt?.logs || []) {
+    if ((log.address || "").toLowerCase() !== eventFactoryAddress.toLowerCase())
+      continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: (EventFactoryABI as any).abi,
+        data: log.data,
+        topics: log.topics,
+      }) as { eventName: string; args: any };
+      if (decoded.eventName === "MarketCreated") {
+        const addr = decoded.args?.marketContract as string | undefined;
+        if (addr) addresses.push(addr);
+      }
+    } catch {}
+  }
+  return addresses;
+}
+
+async function createEventInDb(payload: {
+  name: string;
+  description: string;
+  image_url: string;
+  markets: DraftMarket[];
+}) {
+  const res = await fetch("/api/events", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Failed to create event (${res.status})`);
+  }
+  return (await res.json()) as { id: number };
+}
+
+async function patchHexAddresses(eventId: number, hexAddresses: string[]) {
+  const res = await fetch(`/api/events/${eventId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({ hex_addresses: hexAddresses }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `Failed to update addresses (${res.status})`);
+  }
+}
 
 export default function CreateEventForm() {
   const [name, setName] = useState("");
@@ -26,123 +103,16 @@ export default function CreateEventForm() {
     { name: "", is_resolved: false, open_until: "" },
   ]);
   const [submitting, setSubmitting] = useState(false);
+  const [onChainSubmitting, setOnChainSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [emittedEvents, setEmittedEvents] = useState<any[]>([]);
+  const [createdEventId, setCreatedEventId] = useState<number | null>(null);
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const router = useRouter();
 
-  // Contract interaction hooks
-  const { writeContract, isPending: isContractPending, data: contractTxHash, error: contractError } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isTxError, error: txError, data: txReceipt } = useWaitForTransactionReceipt({
-    hash: contractTxHash,
-  });
-  const publicClient = usePublicClient();
-
-  // Function to parse transaction logs and extract events
-  const parseTransactionEvents = async (txHash: string) => {
-    if (!publicClient) return [];
-    
-    try {
-      // Get transaction receipt
-      const receipt = await publicClient.getTransactionReceipt({ hash: txHash as `0x${string}` });
-      
-      // Parse logs to extract events
-      const parsedEvents: any[] = [];
-      
-      for (const log of receipt.logs) {
-        try {
-          // Try to decode the log using the EventFactory ABI
-          const decodedLog = decodeEventLog({
-            abi: EventFactoryABI.abi,
-            data: log.data,
-            topics: log.topics,
-          });
-          
-          parsedEvents.push({
-            eventName: decodedLog.eventName,
-            args: decodedLog.args,
-            blockNumber: log.blockNumber,
-            transactionHash: log.transactionHash,
-            logIndex: log.logIndex,
-          });
-        } catch (error) {
-          // Log might not be from our contract or might be a different event
-          console.log("Could not decode log:", error);
-        }
-      }
-      
-      return parsedEvents;
-    } catch (error) {
-      console.error("Error parsing transaction events:", error);
-      return [];
-    }
-  };
-
-  // Handle transaction completion
-  useEffect(() => {
-    if (isConfirmed && contractTxHash) {
-      setError(null); // Clear any previous errors
-      setSuccess(`Event created successfully! Transaction: ${contractTxHash}`);
-      console.log("Event created successfully! Transaction hash:", contractTxHash);
-      
-      // Parse and log emitted events
-      parseTransactionEvents(contractTxHash).then((events) => {
-        console.log("📋 Emitted Events:", events);
-        setEmittedEvents(events);
-        
-        // Log each event individually for better readability
-        events.forEach((event, index) => {
-          console.log(`🎯 Event ${index + 1}:`, {
-            name: event.eventName,
-            args: event.args,
-            blockNumber: event.blockNumber?.toString(),
-            logIndex: event.logIndex
-          });
-        });
-        
-        // If we have an EventCreated event, we could extract the eventId
-        const eventCreatedLog = events.find(e => e.eventName === 'EventCreated');
-        if (eventCreatedLog && eventCreatedLog.args?.eventId) {
-          console.log("🆔 Created Event ID:", eventCreatedLog.args.eventId.toString());
-          // router.push(`/event/${eventCreatedLog.args.eventId}`);
-        }
-      }).catch((error) => {
-        console.error("Error parsing events:", error);
-      });
-    }
-  }, [isConfirmed, contractTxHash, router]);
-
-  // Handle transaction failure
-  useEffect(() => {
-    if (isTxError && contractTxHash) {
-      setSuccess(null); // Clear any previous success
-      setError(`Transaction failed: ${txError?.message || 'Transaction was reverted'}`);
-    }
-  }, [isTxError, txError, contractTxHash]);
-
-  // Handle contract errors
-  useEffect(() => {
-    if (contractError) {
-      setError(`Contract error: ${contractError.message}`);
-    }
-  }, [contractError]);
-
-  function updateMarket(idx: number, patch: Partial<DraftMarket>) {
-    setMarkets((prev) =>
-      prev.map((m, i) => (i === idx ? { ...m, ...patch } : m))
-    );
-  }
-
-  function addMarket() {
-    setMarkets((prev) => [
-      ...prev,
-      { name: "", is_resolved: false, open_until: "" },
-    ]);
-  }
-
-  function removeMarket(idx: number) {
-    setMarkets((prev) => prev.filter((_, i) => i !== idx));
-  }
+  // Contract interaction
+  const { writeContractAsync, isPending: isContractPending } =
+    useWriteContract();
 
   // Build a live preview using native DB types
   const previewMarkets: DbMarket[] = useMemo(() => {
@@ -183,93 +153,106 @@ export default function CreateEventForm() {
     null
   );
 
-  // Keep selection in sync with first available market
-  const firstMarketId = previewMarkets[0]?.id;
-  if (!selectedMarketId && typeof firstMarketId !== "undefined") {
-    setSelectedMarketId(String(firstMarketId));
+  function updateMarket(idx: number, patch: Partial<DraftMarket>) {
+    setMarkets((prev) =>
+      prev.map((m, i) => (i === idx ? { ...m, ...patch } : m))
+    );
+  }
+
+  function addMarket() {
+    setMarkets((prev) => [
+      ...prev,
+      { name: "", is_resolved: false, open_until: "" },
+    ]);
+  }
+
+  function removeMarket(idx: number) {
+    setMarkets((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setSuccess(null);
     try {
-    //   const res = await fetch("/api/events", {
-    //     method: "POST",
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //       accept: "application/json",
-    //     },
-    //     body: JSON.stringify({
-    //       name,
-    //       description,
-    //       image_url: imageUrl,
-    //       markets,
-    //     }),
-    //   });
-    //   if (!res.ok) {
-    //     const text = await res.text().catch(() => "");
-    //     setError(text || `Failed to create event (${res.status})`);
-    //     setSubmitting(false);
-    //     return;
-    //   }
-    //   const created = await res.json();
-    //   router.push(`/event/${created.id}`);
-    //   router.refresh();
-    console.log("Submitting")
-        setSubmitting(false);
+      if (!name.trim()) throw new Error("Event name is required");
+      if (
+        markets.length === 0 ||
+        markets.some((m) => !m.name.trim() || !m.open_until)
+      ) {
+        throw new Error(
+          "At least one market with name and end date is required"
+        );
+      }
+      const created = await createEventInDb({
+        name,
+        description,
+        image_url: imageUrl,
+        markets,
+      });
+      setCreatedEventId(created.id);
+      setSuccess("Event created. Now create it on-chain.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
       setSubmitting(false);
     }
   }
 
-  // New contract submission function
-  async function onSubmitContract(e: React.FormEvent) {
+  async function onCreateOnChain(e: React.FormEvent) {
     e.preventDefault();
+    setOnChainSubmitting(true);
     setError(null);
     setSuccess(null);
-    
+    setTxHash(null);
     try {
-      // Validate form data
-      if (!name.trim()) {
-        setError("Event name is required");
-        return;
+      if (!createdEventId) throw new Error("Please publish the event first");
+      if (!name.trim()) throw new Error("Event name is required");
+      if (
+        markets.length === 0 ||
+        markets.some((m) => !m.name.trim() || !m.open_until)
+      ) {
+        throw new Error(
+          "At least one market with name and end date is required"
+        );
       }
-      
-      if (markets.length === 0 || markets.some(m => !m.name.trim() || !m.open_until)) {
-        setError("At least one market with name and end date is required");
-        return;
-      }
 
-      // Convert markets to MarketConfig array
-      const marketConfigs = markets.map(market => {
-        const endDate = new Date(market.open_until);
-        const now = new Date();
-        const durationSeconds = Math.floor((endDate.getTime() - now.getTime()) / 1000);
-        
-        return {
-          question: market.name,
-          duration: BigInt(Math.max(durationSeconds, 0)), // Ensure positive duration
-          fee: BigInt(100), // 1% fee (100 basis points)
-          seedCollateral: parseEther("0.00001") // 0.01 ETH as seed collateral
-        };
-      });
+      const marketConfigs = buildMarketConfigs(markets);
+      const eventFactoryAddress =
+        "0x6450031EC3DB3E802a753b03Ea7717F551AFACE7" as const;
 
-      // Random address for EventFactory contract (replace with actual deployed address)
-      const eventFactoryAddress = "0x6450031EC3DB3E802a753b03Ea7717F551AFACE7" as const;
-
-      // Call the contract
-      writeContract({
+      // 1) Write contract
+      const hash = await writeContractAsync({
         address: eventFactoryAddress,
-        abi: EventFactoryABI.abi,
+        abi: (EventFactoryABI as any).abi,
         functionName: "createManualEvent",
         args: [name, description, marketConfigs],
-        value: parseEther("0.00001"), // Send some ETH for gas and seed collateral
+        value: parseEther("0.000001") * BigInt(marketConfigs.length),
       });
+      setTxHash(hash);
 
+      // 2) Wait for receipt
+      const receipt = await waitForTransactionReceipt(wagmiConfig, { hash });
+
+      // 3) Parse addresses from logs
+      const addresses = parseMarketAddressesFromReceipt(receipt);
+      if (addresses.length !== markets.length || addresses.length === 0) {
+        throw new Error(
+          "Mismatch between created markets and on-chain addresses"
+        );
+      }
+
+      // 4) PATCH addresses to DB
+      await patchHexAddresses(createdEventId, addresses);
+
+      setSuccess("Event created on-chain and synced.");
+      router.push(`/event/${createdEventId}`);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setOnChainSubmitting(false);
     }
   }
 
@@ -318,7 +301,9 @@ export default function CreateEventForm() {
       <aside className="hidden lg:block lg:col-span-1 lg:sticky lg:top-16 h-fit">
         <form onSubmit={onSubmit} className="space-y-4">
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
-          {success ? <div className="text-sm text-green-600">{success}</div> : null}
+          {success ? (
+            <div className="text-sm text-green-600">{success}</div>
+          ) : null}
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="name">
               Name
@@ -414,50 +399,20 @@ export default function CreateEventForm() {
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Publishing..." : "Publish event"}
             </Button>
-            <Button 
-              type="button" 
-              onClick={onSubmitContract}
-              disabled={isContractPending || isConfirming}
+            <Button
+              type="button"
+              onClick={onCreateOnChain}
+              disabled={onChainSubmitting || isContractPending}
               variant="outline"
               className="w-full"
             >
-              {isContractPending ? "Preparing transaction..." : 
-               isConfirming ? "Confirming transaction..." : 
-               isConfirmed ? "Event Created Successfully!" :
-               isTxError ? "Transaction Failed" :
-               "Create Event on Chain"}
+              {onChainSubmitting
+                ? "Creating on-chain..."
+                : "Create Event on Chain"}
             </Button>
-            {contractTxHash && (
+            {txHash && (
               <div className="text-xs text-muted-foreground">
-                Transaction: {contractTxHash.slice(0, 10)}...{contractTxHash.slice(-8)}
-                {isConfirmed && <span className="text-green-600 ml-2">✓ Success</span>}
-                {isTxError && <span className="text-red-600 ml-2">✗ Failed</span>}
-              </div>
-            )}
-            {emittedEvents.length > 0 && (
-              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
-                <h4 className="text-sm font-medium text-green-800 mb-2">🎯 Emitted Events:</h4>
-                <div className="space-y-2">
-                  {emittedEvents.map((event, index) => (
-                    <div key={index} className="text-xs">
-                      <div className="font-medium text-green-700">{event.eventName}</div>
-                      <div className="text-green-600 mt-1">
-                        {Object.entries(event.args || {}).map(([key, value]) => (
-                          <div key={key} className="ml-2">
-                            <span className="font-medium">{key}:</span> {
-                              typeof value === 'bigint' ? value.toString() : 
-                              Array.isArray(value) ? `[${value.map(v => typeof v === 'bigint' ? v.toString() : String(v)).join(', ')}]` :
-                              String(value)
-                            }
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-green-500 text-[10px] mt-1">
-                        Block: {event.blockNumber?.toString()} | Log Index: {event.logIndex}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                Transaction: {txHash.slice(0, 10)}...{txHash.slice(-8)}
               </div>
             )}
           </div>
@@ -468,7 +423,9 @@ export default function CreateEventForm() {
       <div className="lg:hidden">
         <form onSubmit={onSubmit} className="space-y-4">
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
-          {success ? <div className="text-sm text-green-600">{success}</div> : null}
+          {success ? (
+            <div className="text-sm text-green-600">{success}</div>
+          ) : null}
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="m_name">
               Name
@@ -564,50 +521,20 @@ export default function CreateEventForm() {
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Publishing..." : "Publish event"}
             </Button>
-            <Button 
-              type="button" 
-              onClick={onSubmitContract}
-              disabled={isContractPending || isConfirming}
+            <Button
+              type="button"
+              onClick={onCreateOnChain}
+              disabled={onChainSubmitting || isContractPending}
               variant="outline"
               className="w-full"
             >
-              {isContractPending ? "Preparing transaction..." : 
-               isConfirming ? "Confirming transaction..." : 
-               isConfirmed ? "Event Created Successfully!" :
-               isTxError ? "Transaction Failed" :
-               "Create Event on Chain"}
+              {onChainSubmitting
+                ? "Creating on-chain..."
+                : "Create Event on Chain"}
             </Button>
-            {contractTxHash && (
+            {txHash && (
               <div className="text-xs text-muted-foreground">
-                Transaction: {contractTxHash.slice(0, 10)}...{contractTxHash.slice(-8)}
-                {isConfirmed && <span className="text-green-600 ml-2">✓ Success</span>}
-                {isTxError && <span className="text-red-600 ml-2">✗ Failed</span>}
-              </div>
-            )}
-            {emittedEvents.length > 0 && (
-              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
-                <h4 className="text-sm font-medium text-green-800 mb-2">🎯 Emitted Events:</h4>
-                <div className="space-y-2">
-                  {emittedEvents.map((event, index) => (
-                    <div key={index} className="text-xs">
-                      <div className="font-medium text-green-700">{event.eventName}</div>
-                      <div className="text-green-600 mt-1">
-                        {Object.entries(event.args || {}).map(([key, value]) => (
-                          <div key={key} className="ml-2">
-                            <span className="font-medium">{key}:</span> {
-                              typeof value === 'bigint' ? value.toString() : 
-                              Array.isArray(value) ? `[${value.map(v => typeof v === 'bigint' ? v.toString() : String(v)).join(', ')}]` :
-                              String(value)
-                            }
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-green-500 text-[10px] mt-1">
-                        Block: {event.blockNumber?.toString()} | Log Index: {event.logIndex}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                Transaction: {txHash.slice(0, 10)}...{txHash.slice(-8)}
               </div>
             )}
           </div>

@@ -29,7 +29,7 @@ export async function GET() {
   const { data: markets, error: mErr } = await supabaseAdmin
     .from("event_markets")
     .select(
-      "id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume"
+      "id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume, hex_address"
     )
     .in("event_id", ids);
 
@@ -111,6 +111,7 @@ export async function POST(req: Request) {
         open_until: typeof m?.open_until === "string" ? m.open_until : null,
         last_price: 0.5,
         traded_volume: 0,
+        hex_address: null,
       }))
       .filter((m: any) => (m.name || "").trim().length > 0);
 
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
         .from("event_markets")
         .insert(rows)
         .select(
-          "id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume"
+          "id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume, hex_address"
         );
 
       if (mErr) {

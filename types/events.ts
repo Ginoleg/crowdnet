@@ -19,5 +19,6 @@ export type DbMarket = {
   created_at: string;
   last_price: number | null;
   traded_volume: number;
+  hex_address?: string | null;
 };
 

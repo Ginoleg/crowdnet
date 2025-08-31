@@ -113,7 +113,7 @@ export default function ClientEventList({ events }: ClientEventListProps) {
                             key={mkt.id}
                             className={`py-1 ${idx === 0 ? "pt-0" : ""}`}
                           >
-                            <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center justify-between gap-3">
                               <div className="flex flex-col min-w-0 gap-1.5">
                                 <div className="flex items-center gap-3">
                                   <span
