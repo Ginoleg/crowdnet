@@ -53,6 +53,10 @@ export default function ClientEventListEvt({
           const markets: DbMarket[] = Array.isArray(event.markets)
             ? event.markets.slice(0, 3)
             : [];
+          const totalMarkets = Array.isArray(event.markets)
+            ? event.markets.length
+            : 0;
+          const isSingleMarket = totalMarkets === 1;
           const colIndexSm = eventIndex % 2;
           const smPl = colIndexSm === 0 ? "sm:pl-0" : "sm:pl-4";
           const smPr = colIndexSm === 0 ? "sm:pr-4" : "sm:pr-0";
@@ -117,53 +121,93 @@ export default function ClientEventListEvt({
                             key={mkt.id}
                             className={`py-1 ${idx === 0 ? "pt-0" : ""}`}
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex flex-col min-w-0 gap-1.5 w-full">
-                                <div className="flex items-center gap-3 w-full justify-between">
-                                  <span
-                                    className="text-sm text-foreground/80 truncate"
-                                    title={mkt.name || ""}
+                            {isSingleMarket ? (
+                              <div>
+                                <div className="flex items-center gap-2 w-full pb-4">
+                                  <Button
+                                    size="lg"
+                                    variant="ghost"
+                                    className="h-10 px-3 w-[48%] text-base font-medium bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-600"
+                                    onClick={() => {
+                                      setSelectedTrade({
+                                        eventId: String(event.id),
+                                        marketId: String(mkt.id),
+                                        outcome: "YES",
+                                      });
+                                      router.push(`${hrefBase}/${event.id}`);
+                                    }}
                                   >
-                                    {mkt.name}
-                                  </span>
-                                  <span className="text-sm font-semibold tabular-nums">
-                                    {toPercent(pct)}
-                                  </span>
+                                    Yes
+                                  </Button>
+                                  <Button
+                                    size="lg"
+                                    variant="ghost"
+                                    className="h-10 px-3 w-1/2 text-base font-medium bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-500"
+                                    onClick={() => {
+                                      setSelectedTrade({
+                                        eventId: String(event.id),
+                                        marketId: String(mkt.id),
+                                        outcome: "NO",
+                                      });
+                                      router.push(`${hrefBase}/${event.id}`);
+                                    }}
+                                  >
+                                    No
+                                  </Button>
+                                </div>
+                                <span className="text-sm font-semibold tabular-nums items-end -mb-8 w-full text-left block">
+                                  {toPercent(pct)}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex flex-col min-w-0 gap-1.5 w-full">
+                                  <div className="flex items-center gap-3 w-full justify-between">
+                                    <span
+                                      className="text-sm text-foreground/80 truncate"
+                                      title={mkt.name || ""}
+                                    >
+                                      {mkt.name}
+                                    </span>
+                                    <span className="text-sm font-semibold tabular-nums">
+                                      {toPercent(pct)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-600"
+                                    onClick={() => {
+                                      setSelectedTrade({
+                                        eventId: String(event.id),
+                                        marketId: String(mkt.id),
+                                        outcome: "YES",
+                                      });
+                                      router.push(`${hrefBase}/${event.id}`);
+                                    }}
+                                  >
+                                    Yes
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-500"
+                                    onClick={() => {
+                                      setSelectedTrade({
+                                        eventId: String(event.id),
+                                        marketId: String(mkt.id),
+                                        outcome: "NO",
+                                      });
+                                      router.push(`${hrefBase}/${event.id}`);
+                                    }}
+                                  >
+                                    No
+                                  </Button>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-600"
-                                  onClick={() => {
-                                    setSelectedTrade({
-                                      eventId: String(event.id),
-                                      marketId: String(mkt.id),
-                                      outcome: "YES",
-                                    });
-                                    router.push(`${hrefBase}/${event.id}`);
-                                  }}
-                                >
-                                  Yes
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2 bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-500"
-                                  onClick={() => {
-                                    setSelectedTrade({
-                                      eventId: String(event.id),
-                                      marketId: String(mkt.id),
-                                      outcome: "NO",
-                                    });
-                                    router.push(`${hrefBase}/${event.id}`);
-                                  }}
-                                >
-                                  No
-                                </Button>
-                              </div>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
@@ -172,7 +216,7 @@ export default function ClientEventListEvt({
                           No markets available.
                         </div>
                       ) : null}
-                      <div className="pt-3 text-xs text-muted-foreground flex items-center gap-2">
+                      <div className="pt-3 text-xs text-muted-foreground flex items-center justify-end gap-2 w-full">
                         <span>
                           Traded vol: {formatNumber(event.traded_volume ?? 0)}
                         </span>

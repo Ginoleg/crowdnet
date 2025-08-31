@@ -12,6 +12,25 @@ import { toast } from "sonner";
 import BinaryPredictionMarketABI from "@/abis/BinaryPredictionMarket.json";
 import { wagmiConfig } from "@/lib/wagmi";
 
+async function patchMarketStats(
+  marketId: number,
+  lastPrice: number,
+  tradedDelta: number
+) {
+  // try cookie session first; Authorization header optional for SSR APIs
+  const res = await fetch(`/api/markets/${marketId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ last_price: lastPrice, traded_delta: tradedDelta }),
+  });
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Failed to update market (${res.status})`);
+  }
+}
+
 function defaultOutcomeNames(): string[] {
   return ["Yes", "No"];
 }
@@ -75,6 +94,7 @@ export default function TradePanel({
     selectedOutcome: BinaryOutcome
   ) => {
     const logs = receipt.logs;
+    let totalCollateral = BigInt(0);
 
     logs.forEach((log: any) => {
       try {
@@ -88,6 +108,7 @@ export default function TradePanel({
           const { collateralIn, yesMinted, yesFromSwap, newX, newY, newVault } =
             decodedLog.args as any;
           const totalTokens = BigInt(yesMinted) + BigInt(yesFromSwap);
+          totalCollateral += BigInt(collateralIn);
           toast.success(`YES Trade Successful!`, {
             description: `Paid: ${formatEther(
               collateralIn
@@ -101,6 +122,7 @@ export default function TradePanel({
           const { collateralIn, noMinted, noFromSwap, newX, newY, newVault } =
             decodedLog.args as any;
           const totalTokens = BigInt(noMinted) + BigInt(noFromSwap);
+          totalCollateral += BigInt(collateralIn);
           toast.success(`NO Trade Successful!`, {
             description: `Paid: ${formatEther(
               collateralIn
@@ -115,6 +137,8 @@ export default function TradePanel({
         console.error("Error decoding log:", error);
       }
     });
+
+    return Number(formatEther(totalCollateral));
   };
 
   const handleTrade = async () => {
@@ -151,7 +175,32 @@ export default function TradePanel({
       const receipt = await waitForTransactionReceipt(wagmiConfig, { hash });
 
       // Step 4: Parse events and show success
-      parseTransactionLogs(receipt, selectedOutcome);
+      const tradedDelta = parseTransactionLogs(receipt, selectedOutcome);
+
+      // Fallback to input amount if logs didn't yield a value
+      const tradedDeltaFinal = Number.isFinite(tradedDelta)
+        ? tradedDelta
+        : Number(amount);
+
+      // Determine new last price from refreshed on-chain yes price
+      // Prefer refetching right away for accuracy
+      const refetched = await refetchYesPrice();
+      let yesPriceAfter: number | null = null;
+      const yesRaw = refetched?.data ?? contractYesPrice;
+      if (yesRaw) {
+        yesPriceAfter = Number(yesRaw) / 1e18;
+      }
+      const lastPrice =
+        typeof yesPriceAfter === "number" && Number.isFinite(yesPriceAfter)
+          ? yesPriceAfter
+          : price ?? null;
+
+      if (market?.id && lastPrice !== null) {
+        // Fire-and-forget; don't block UX on DB update
+        patchMarketStats(market.id, lastPrice, tradedDeltaFinal).catch(
+          () => {}
+        );
+      }
 
       // Clear the amount after successful trade
       setAmount("");

@@ -13,6 +13,13 @@ import { waitForTransactionReceipt } from "wagmi/actions";
 import { parseEther, decodeEventLog } from "viem";
 import EventFactoryABI from "@/abis/EventFactory.json";
 import { wagmiConfig } from "@/lib/wagmi";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type DraftMarket = {
   name: string;
@@ -109,6 +116,9 @@ export default function CreateEventForm() {
   const [createdEventId, setCreatedEventId] = useState<number | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const router = useRouter();
+  const [oracleType, setOracleType] = useState<
+    "manual" | "flare" | "kleros" | "escrow"
+  >("manual");
 
   // Contract interaction
   const { writeContractAsync, isPending: isContractPending } =
@@ -395,6 +405,59 @@ export default function CreateEventForm() {
             ))}
           </div>
 
+          <div>
+            <div className="block text-sm font-medium mb-2">
+              Resolution oracle
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <Card
+                className={`cursor-pointer p-3 px-4 items-start justify-center rounded-md ${
+                  oracleType === "manual"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("manual")}
+              >
+                <CardTitle className="text-sm mb-0">
+                  Manual resolution
+                </CardTitle>
+              </Card>
+
+              <Card
+                className={`cursor-pointer p-3 px-4 items-start justify-center rounded-md ${
+                  oracleType === "flare"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("flare")}
+              >
+                <CardTitle className="text-sm">Flare oracle</CardTitle>
+              </Card>
+
+              <Card
+                className={`cursor-pointer p-3 px-4 items-start justify-center rounded-md ${
+                  oracleType === "kleros"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("kleros")}
+              >
+                <CardTitle className="text-sm">Kleros court</CardTitle>
+              </Card>
+
+              <Card
+                className={`cursor-pointer p-3 px-4 items-start justify-center rounded-md ${
+                  oracleType === "escrow"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("escrow")}
+              >
+                <CardTitle className="text-sm">Third Party Escrow</CardTitle>
+              </Card>
+            </div>
+          </div>
+
           <div className="pt-2 space-y-2">
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Publishing..." : "Publish event"}
@@ -515,6 +578,118 @@ export default function CreateEventForm() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div>
+            <div className="block text-sm font-medium mb-1">
+              Resolution oracle
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Card
+                className={`cursor-pointer ${
+                  oracleType === "manual"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("manual")}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Manual resolution</CardTitle>
+                  <CardDescription>Default</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={oracleType === "manual" ? "default" : "outline"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOracleType("manual");
+                    }}
+                  >
+                    {oracleType === "manual" ? "Selected" : "Select"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card
+                className={`cursor-pointer ${
+                  oracleType === "flare"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("flare")}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Flare oracle</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={oracleType === "flare" ? "default" : "outline"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOracleType("flare");
+                    }}
+                  >
+                    {oracleType === "flare" ? "Selected" : "Select"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card
+                className={`cursor-pointer ${
+                  oracleType === "kleros"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("kleros")}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Kleros court</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={oracleType === "kleros" ? "default" : "outline"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOracleType("kleros");
+                    }}
+                  >
+                    {oracleType === "kleros" ? "Selected" : "Select"}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card
+                className={`cursor-pointer ${
+                  oracleType === "escrow"
+                    ? "border-primary ring-2 ring-primary/20"
+                    : ""
+                }`}
+                onClick={() => setOracleType("escrow")}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Third Party Escrow</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={oracleType === "escrow" ? "default" : "outline"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOracleType("escrow");
+                    }}
+                  >
+                    {oracleType === "escrow" ? "Selected" : "Select"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
 
           <div className="pt-2 space-y-2">
