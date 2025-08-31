@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useWriteContract, useReadContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { parseEther, decodeEventLog, formatEther } from "viem";
@@ -36,22 +36,24 @@ export default function TradePanel({
   const names = defaultOutcomeNames();
   const [amount, setAmount] = useState<string>("");
   const [isTrading, setIsTrading] = useState<boolean>(false);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
 
   const { writeContractAsync } = useWriteContract();
 
   // Read the current YES price from the contract
-  const { data: contractYesPrice } = useReadContract({
+  const { data: contractYesPrice, refetch: refetchYesPrice } = useReadContract({
     address: market?.hex_address as `0x${string}`,
     abi: BinaryPredictionMarketABI.abi,
-    functionName: 'getYesPrice',
+    functionName: "getYesPrice",
     query: {
       enabled: !!market?.hex_address,
+      staleTime: 0,
     },
   });
 
   const price = useMemo(() => {
     if (!market || !selectedOutcome) return null;
-    
+
     // Use contract price if available, otherwise fallback to last_price
     let yesPrice: number;
     if (contractYesPrice) {
@@ -59,17 +61,21 @@ export default function TradePanel({
       yesPrice = Number(contractYesPrice) / 1e18;
     } else {
       // Fallback to last_price from database
-      yesPrice = typeof market.last_price === "number" ? market.last_price : 0.5;
+      yesPrice =
+        typeof market.last_price === "number" ? market.last_price : 0.5;
     }
-    
+
     if (selectedOutcome === "YES") return yesPrice;
     if (selectedOutcome === "NO") return 1 - yesPrice;
     return null;
   }, [market, selectedOutcome, contractYesPrice]);
 
-  const parseTransactionLogs = (receipt: any, selectedOutcome: BinaryOutcome) => {
+  const parseTransactionLogs = (
+    receipt: any,
+    selectedOutcome: BinaryOutcome
+  ) => {
     const logs = receipt.logs;
-    
+
     logs.forEach((log: any) => {
       try {
         const decodedLog = decodeEventLog({
@@ -78,37 +84,52 @@ export default function TradePanel({
           topics: log.topics,
         });
 
-        if (decodedLog.eventName === 'BuyYes') {
-          const { collateralIn, yesMinted, yesFromSwap, newX, newY, newVault } = decodedLog.args as any;
+        if (decodedLog.eventName === "BuyYes") {
+          const { collateralIn, yesMinted, yesFromSwap, newX, newY, newVault } =
+            decodedLog.args as any;
           const totalTokens = BigInt(yesMinted) + BigInt(yesFromSwap);
           toast.success(`YES Trade Successful!`, {
-            description: `Paid: ${formatEther(collateralIn)} ETH\nReceived: ${formatEther(totalTokens)} YES tokens\nNew Pool: ${formatEther(newX)} YES / ${formatEther(newY)} NO\nVault: ${formatEther(newVault)} ETH`
+            description: `Paid: ${formatEther(
+              collateralIn
+            )} ETH\nReceived: ${formatEther(
+              totalTokens
+            )} YES tokens\nNew Pool: ${formatEther(newX)} YES / ${formatEther(
+              newY
+            )} NO\nVault: ${formatEther(newVault)} ETH`,
           });
-        } else if (decodedLog.eventName === 'BuyNo') {
-          const { collateralIn, noMinted, noFromSwap, newX, newY, newVault } = decodedLog.args as any;
+        } else if (decodedLog.eventName === "BuyNo") {
+          const { collateralIn, noMinted, noFromSwap, newX, newY, newVault } =
+            decodedLog.args as any;
           const totalTokens = BigInt(noMinted) + BigInt(noFromSwap);
           toast.success(`NO Trade Successful!`, {
-            description: `Paid: ${formatEther(collateralIn)} ETH\nReceived: ${formatEther(totalTokens)} NO tokens\nNew Pool: ${formatEther(newX)} YES / ${formatEther(newY)} NO\nVault: ${formatEther(newVault)} ETH`
+            description: `Paid: ${formatEther(
+              collateralIn
+            )} ETH\nReceived: ${formatEther(
+              totalTokens
+            )} NO tokens\nNew Pool: ${formatEther(newX)} YES / ${formatEther(
+              newY
+            )} NO\nVault: ${formatEther(newVault)} ETH`,
           });
         }
       } catch (error) {
-        console.error('Error decoding log:', error);
+        console.error("Error decoding log:", error);
       }
     });
   };
 
   const handleTrade = async () => {
     if (!selectedOutcome || !amount || !market?.hex_address) return;
-    
+
     setIsTrading(true);
-    
+    setConfirmation(null);
+
     try {
       // Convert USD amount to wei (assuming 1 USD = 1 ETH for simplicity)
       const value = parseEther(amount);
-      
+
       // Step 1: Submit transaction
-      toast.loading('Submitting transaction...', {
-        description: 'Please confirm the transaction in your wallet'
+      toast.loading("Submitting transaction...", {
+        description: "Please confirm the transaction in your wallet",
       });
 
       const hash = await writeContractAsync({
@@ -119,8 +140,11 @@ export default function TradePanel({
       });
 
       // Step 2: Show transaction submitted
-      toast.loading('Transaction submitted...', {
-        description: `Waiting for confirmation: ${hash.slice(0, 10)}...${hash.slice(-8)}`
+      toast.loading("Transaction submitted...", {
+        description: `Waiting for confirmation: ${hash.slice(
+          0,
+          10
+        )}...${hash.slice(-8)}`,
       });
 
       // Step 3: Wait for confirmation
@@ -131,20 +155,45 @@ export default function TradePanel({
 
       // Clear the amount after successful trade
       setAmount("");
-      
-      toast.success('Transaction confirmed!', {
-        description: `Transaction hash: ${hash.slice(0, 10)}...${hash.slice(-8)}`
+
+      toast.success("Transaction confirmed!", {
+        description: `Transaction hash: ${hash.slice(0, 10)}...${hash.slice(
+          -8
+        )}`,
       });
 
+      // Inline confirmation text for the user
+      setConfirmation("Trade confirmed. Price updated.");
+
+      // Immediately refresh the on-chain price
+      await refetchYesPrice();
+
+      // Notify other components to refresh their price for this market
+      try {
+        if (market?.hex_address) {
+          window.dispatchEvent(
+            new CustomEvent("market:price-update", {
+              detail: { address: market.hex_address },
+            })
+          );
+        }
+      } catch {}
     } catch (error: any) {
       console.error("Transaction failed:", error);
-      toast.error('Transaction Failed', {
-        description: error?.message || 'An error occurred while processing the transaction'
+      toast.error("Transaction Failed", {
+        description:
+          error?.message ||
+          "An error occurred while processing the transaction",
       });
     } finally {
       setIsTrading(false);
     }
   };
+
+  useEffect(() => {
+    // Clear confirmation on selection or market change
+    setConfirmation(null);
+  }, [selectedOutcome, market?.id]);
 
   if (!market) {
     return (
@@ -193,15 +242,17 @@ export default function TradePanel({
         <Button
           className="w-full"
           size="sm"
-          disabled={!selectedOutcome || !amount || isTrading || !market?.hex_address}
+          disabled={
+            !selectedOutcome || !amount || isTrading || !market?.hex_address
+          }
           onClick={handleTrade}
         >
-          {isTrading 
-            ? "Processing..." 
-            : `Trade ${selectedOutcome || ""}`
-          }
+          {isTrading ? "Processing..." : `Trade ${selectedOutcome || ""}`}
         </Button>
       </div>
+      {confirmation ? (
+        <div className="text-xs text-green-600">{confirmation}</div>
+      ) : null}
       {price !== null ? (
         <div className="text-xs text-muted-foreground">
           Estimated price: {toPercent(price)}

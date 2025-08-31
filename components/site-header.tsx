@@ -86,7 +86,7 @@ export function SiteHeader() {
               <div className="flex items-center gap-6 min-w-0 flex-1">
                 <Link href="/">
                   <h1 className="text-xl font-bold tracking-[-1px] -mt-[2px]">
-                    Crowdbet
+                    Crowdnet
                   </h1>
                 </Link>
                 <div className="hidden sm:block w-64 md:w-80 lg:w-96 relative">
@@ -116,7 +116,7 @@ export function SiteHeader() {
                         variant="ghost"
                         className="text-foreground/50 hover:text-foreground h-8 px-3 -mr-4"
                       >
-                        What's Crowdbet?
+                        What's Crowdnet?
                       </Button>
                     </DialogTrigger>
                     <DialogContent
@@ -127,7 +127,7 @@ export function SiteHeader() {
                         <div className="bg-gradient-to-b from-white/10 via-white/50 to-white p-20">
                           <DialogHeader className="gap-3">
                             <DialogTitle className="text-5xl text-center font-bold tracking-tight">
-                              Crowdbet
+                              Crowdnet
                             </DialogTitle>
                             <DialogDescription className="text-black text-lg items-center text-center">
                               The social prediction market for <XLogo /> users

@@ -36,23 +36,10 @@ function buildPrompt(title: string, description: string, marketTitles: string[])
 
 Analyze the following event submission and classify it. 
 Your task is to detect if it contains any of these categories:
-- Violence incitement or threats
+- Explicit death or extreme violence
+- Death threats
 - Suicide or self-harm
-- Sexual or sexually explicit content
-
-Rules:
-- If any prohibited content is detected → "BLOCK"
-- If unclear, borderline, or potentially risky → "REVIEW"
-- Otherwise → "ALLOW"
-- Do not allow events involving minors in a sexual context, criminal facilitation, or credible threats.
-
-Return your answer ONLY in this JSON format:
-
-{
-  "decision": "ALLOW | REVIEW | BLOCK",
-  "category": "<one of: Violence, Suicide, Sexual, OtherUnsafe, None>",
-  "rationale": "<short one-sentence reason>"
-}
+- Minors in a sexual context
 
 EVENT:
 Title: "${title}"
@@ -99,7 +86,7 @@ export async function POST(req: Request) {
 
   try {
     const { text } = await generateText({
-      model: "openai/gpt-5-nano",
+      model: "openai/gpt-5-mini",
       system: "You are content moderation system for an events platform.",
       prompt,
     });

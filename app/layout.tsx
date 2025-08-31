@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Crowdbet",
+  title: "Crowdnet",
   description: "Social prediction market",
 };
 
@@ -41,7 +41,7 @@ export default function RootLayout({
             {children}
             <footer className="flex gap-12 flex-wrap items-center justify-start w-full max-w-5xl mx-auto py-8">
               <p className="flex items-center gap-2 text-foreground/50">
-                Crowdbet@2025
+                Crowdnet@2025
               </p>
               <a
                 className="flex text-foreground/50 items-center gap-2 hover:underline hover:underline-offset-4"
