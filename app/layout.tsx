@@ -6,6 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { Provider as JotaiProvider } from "jotai";
 import Providers from "@/components/providers";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +35,9 @@ export default function RootLayout({
       >
         <Providers>
           <JotaiProvider>
-            <SiteHeader />
+            <Suspense fallback={<div className="h-[90px]" />}>
+              <SiteHeader />
+            </Suspense>
             {children}
             <footer className="flex gap-12 flex-wrap items-center justify-start w-full max-w-5xl mx-auto py-8">
               <p className="flex items-center gap-2 text-foreground/50">

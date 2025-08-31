@@ -1,7 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabase/server-client";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const idNum = Number(params.id);
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  const idNum = Number(id);
   if (!Number.isFinite(idNum)) return new Response("bad id", { status: 400 });
 
   const { data: event, error } = await supabaseAdmin
