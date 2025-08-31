@@ -18,10 +18,13 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
 
   const { data: markets, error: mErr } = await supabaseAdmin
     .from("event_markets")
-    .select("id, event_id, name, is_resolved, open_until, created_at")
+    .select("id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume")
     .eq("event_id", idNum);
 
   if (mErr) return new Response("db error", { status: 500 });
 
-  return Response.json({ ...event, markets: markets || [] });
+  const mkts = markets || [];
+  const traded_volume = mkts.reduce((sum, m) => sum + (Number(m.traded_volume) || 0), 0);
+
+  return Response.json({ ...event, markets: mkts, traded_volume });
 } 

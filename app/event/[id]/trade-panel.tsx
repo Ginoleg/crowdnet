@@ -1,34 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { PolymarketMarket, BinaryOutcome } from "@/types/events";
+import type { DbMarket } from "@/types/events";
+import type { BinaryOutcome } from "@/types/events";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-function parseOutcomeNames(raw?: string): string[] {
-  if (!raw) return ["Yes", "No"];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length) return parsed.map(String);
-  } catch {}
-  const parts = raw
-    .split(/[,/|]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return parts.length >= 2 ? parts.slice(0, 2) : ["Yes", "No"];
-}
-
-function parseOutcomePrices(raw?: string): number[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed))
-      return parsed.map((n) => Number(n)).filter((n) => Number.isFinite(n));
-  } catch {}
-  return raw
-    .split(/[,/|]/)
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isFinite(n));
+function defaultOutcomeNames(): string[] {
+  return ["Yes", "No"];
 }
 
 function toPercent(value: number | undefined | null): string {
@@ -38,7 +17,7 @@ function toPercent(value: number | undefined | null): string {
 }
 
 export type TradePanelProps = {
-  market: PolymarketMarket | null;
+  market: DbMarket | null;
   selectedOutcome: BinaryOutcome | null;
   onSelectOutcome?: (outcome: BinaryOutcome) => void;
 };
@@ -48,16 +27,16 @@ export default function TradePanel({
   selectedOutcome,
   onSelectOutcome,
 }: TradePanelProps) {
-  const names = parseOutcomeNames(market?.shortOutcomes || market?.outcomes);
-  const prices = parseOutcomePrices(market?.outcomePrices);
+  const names = defaultOutcomeNames();
   const [amount, setAmount] = useState<string>("");
 
   const price = useMemo(() => {
     if (!market) return null;
-    if (selectedOutcome === "YES") return prices[0] ?? null;
-    if (selectedOutcome === "NO") return prices[1] ?? null;
+    const lp = typeof market.last_price === "number" ? market.last_price : 0.5;
+    if (selectedOutcome === "YES") return lp;
+    if (selectedOutcome === "NO") return 1 - lp;
     return null;
-  }, [market, prices, selectedOutcome]);
+  }, [market, selectedOutcome]);
 
   if (!market) {
     return (
@@ -69,9 +48,7 @@ export default function TradePanel({
 
   return (
     <div className="space-y-3">
-      <div className="text-sm font-medium leading-5">
-        {market.groupItemTitle?.trim() || market.question}
-      </div>
+      <div className="text-sm font-medium leading-5">{market.name}</div>
       <div className="flex items-center gap-2 w-1/2">
         <Button
           size="sm"
@@ -83,8 +60,7 @@ export default function TradePanel({
               : "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-800 grayscale-50"
           }`}
         >
-          {names[0] || "Yes"}{" "}
-          {typeof prices[0] === "number" ? `· ${toPercent(prices[0])}` : ""}
+          {names[0]}
         </Button>
         <Button
           size="sm"
@@ -96,8 +72,7 @@ export default function TradePanel({
               : "bg-rose-100 text-rose-700 hover:bg-rose-200 hover:text-rose-800 grayscale-50"
           }`}
         >
-          {names[1] || "No"}{" "}
-          {typeof prices[1] === "number" ? `· ${toPercent(prices[1])}` : ""}
+          {names[1]}
         </Button>
       </div>
       <div className="flex flex-col items-center gap-2">

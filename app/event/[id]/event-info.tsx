@@ -1,29 +1,21 @@
 "use client";
 
 import Image from "next/image";
-import type { PolymarketEvent } from "@/types/events";
+import type { DbEvent, DbMarket } from "@/types/events";
 
 export type EventInfoProps = {
-  event: PolymarketEvent;
+  event: DbEvent;
+  markets?: DbMarket[];
 };
 
-function formatUsd(value: number | undefined | null): string {
-  const num = typeof value === "number" ? value : 0;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(num);
-}
-
-function formatDateTime(input?: string): string {
+function formatDateTime(input?: string | null): string {
   if (!input) return "TBD";
   const d = new Date(input);
   if (Number.isNaN(d.getTime())) return "TBD";
   return d.toLocaleString();
 }
 
-function isValidHttpUrl(maybeUrl?: string): boolean {
+function isValidHttpUrl(maybeUrl?: string | null): boolean {
   if (!maybeUrl) return false;
   try {
     const url = new URL(maybeUrl);
@@ -33,10 +25,15 @@ function isValidHttpUrl(maybeUrl?: string): boolean {
   }
 }
 
-export default function EventInfo({ event }: EventInfoProps) {
-  const thumbnailCandidate = event.image || event.featuredImage || event.icon;
+export default function EventInfo({ event, markets = [] }: EventInfoProps) {
+  const thumbnailCandidate = event.image_url;
   const hasValidThumbnail = isValidHttpUrl(thumbnailCandidate);
   const hasAnyThumbnail = Boolean(thumbnailCandidate);
+  const earliestOpenUntil = markets
+    .map((m) => m.open_until)
+    .filter(Boolean)
+    .sort((a, b) => (a! < b! ? -1 : a! > b! ? 1 : 0))[0];
+
   return (
     <div className="p-0">
       <div className="px-0 pb-4">
@@ -46,7 +43,7 @@ export default function EventInfo({ event }: EventInfoProps) {
               hasValidThumbnail ? (
                 <Image
                   src={thumbnailCandidate as string}
-                  alt={event.title}
+                  alt={event.name || ""}
                   width={64}
                   height={64}
                   className="rounded-md object-cover bg-neutral-200 h-16 w-16"
@@ -63,15 +60,12 @@ export default function EventInfo({ event }: EventInfoProps) {
             )}
           </div>
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold leading-9">{event.title}</h1>
+            <h1 className="text-2xl font-semibold leading-9">{event.name}</h1>
             <div className="px-0">
               <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                <span>Volume: {formatUsd(event.volume ?? 0)}</span>
+                <span>Created: {formatDateTime(event.created_at)}</span>
                 <span>•</span>
-                <span>
-                  Resolution:{" "}
-                  {formatDateTime(event.endDate || event.closedTime)}
-                </span>
+                <span>Resolution: {formatDateTime(earliestOpenUntil)}</span>
               </div>
             </div>
           </div>

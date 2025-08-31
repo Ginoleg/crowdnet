@@ -1,4 +1,4 @@
-import { getDbEvents } from "@/actions/db-events";
+import { getDbEvents } from "@/actions/events";
 import ClientEventListEvt from "@/components/event-list-client-evt";
 
 export default async function Home() {

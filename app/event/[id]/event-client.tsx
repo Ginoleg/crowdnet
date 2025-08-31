@@ -1,11 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type {
-  PolymarketEvent,
-  PolymarketMarket,
-  BinaryOutcome,
-} from "@/types/events";
+import type { BinaryOutcome, DbEvent, DbMarket } from "@/types/events";
 import { useAtomValue } from "jotai";
 import { selectedTradeAtom } from "@/lib/atoms";
 import EventInfo from "./event-info";
@@ -13,8 +9,8 @@ import MarketList from "./market-list";
 import TradePanel from "./trade-panel";
 
 export type EventClientProps = {
-  event: PolymarketEvent;
-  markets: PolymarketMarket[];
+  event: DbEvent;
+  markets: DbMarket[];
   initialMarketId?: string;
   initialOutcome?: BinaryOutcome | null;
 };
@@ -27,12 +23,12 @@ export default function EventClient({
 }: EventClientProps) {
   const selectedTrade = useAtomValue(selectedTradeAtom);
 
-  const fallbackMarketId = markets[0]?.id ?? "";
+  const fallbackMarketId = markets[0] ? String(markets[0].id) : "";
 
   const [selectedMarketId, setSelectedMarketId] = useState<string>(() => {
     if (
       selectedTrade &&
-      selectedTrade.eventId === event.id &&
+      selectedTrade.eventId === String(event.id) &&
       selectedTrade.marketId
     )
       return selectedTrade.marketId;
@@ -44,7 +40,7 @@ export default function EventClient({
     () => {
       if (
         selectedTrade &&
-        selectedTrade.eventId === event.id &&
+        selectedTrade.eventId === String(event.id) &&
         selectedTrade.outcome
       )
         return selectedTrade.outcome;
@@ -52,15 +48,19 @@ export default function EventClient({
     }
   );
 
-  const selectedMarket = useMemo<PolymarketMarket | null>(() => {
-    return markets.find((m) => m.id === selectedMarketId) ?? markets[0] ?? null;
+  const selectedMarket = useMemo<DbMarket | null>(() => {
+    return (
+      markets.find((m) => String(m.id) === selectedMarketId) ??
+      markets[0] ??
+      null
+    );
   }, [markets, selectedMarketId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-40 lg:pb-0">
       <div className="lg:col-span-2 space-y-6">
         <div className="p-0">
-          <EventInfo event={event} />
+          <EventInfo event={event} markets={markets} />
         </div>
 
         <div className="p-0">
@@ -75,7 +75,9 @@ export default function EventClient({
             ) : (
               <MarketList
                 markets={markets}
-                selectedMarketId={selectedMarket?.id || ""}
+                selectedMarketId={
+                  selectedMarket ? String(selectedMarket.id) : ""
+                }
                 selectedOutcome={selectedOutcome}
                 onSelect={(marketId, outcome) => {
                   setSelectedMarketId(marketId);
