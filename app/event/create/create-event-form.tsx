@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,9 @@ import type {
 } from "@/types/events";
 import EventInfo from "@/app/event/[id]/event-info";
 import MarketList from "@/app/event/[id]/market-list";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { parseEther } from "viem";
+import EventFactoryABI from "@/abis/EventFactory.json";
 
 type DraftMarket = {
   name: string;
@@ -28,7 +31,40 @@ export default function CreateEventForm() {
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
+
+  // Contract interaction hooks
+  const { writeContract, isPending: isContractPending, data: contractTxHash, error: contractError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed, isError: isTxError, error: txError } = useWaitForTransactionReceipt({
+    hash: contractTxHash,
+  });
+
+  // Handle transaction completion
+  useEffect(() => {
+    if (isConfirmed && contractTxHash) {
+      setError(null); // Clear any previous errors
+      setSuccess(`Event created successfully! Transaction: ${contractTxHash}`);
+      console.log("Event created successfully! Transaction hash:", contractTxHash);
+      // Show success message or redirect
+      // router.push(`/event/${eventId}`); // Would need to parse eventId from logs
+    }
+  }, [isConfirmed, contractTxHash, router]);
+
+  // Handle transaction failure
+  useEffect(() => {
+    if (isTxError && contractTxHash) {
+      setSuccess(null); // Clear any previous success
+      setError(`Transaction failed: ${txError?.message || 'Transaction was reverted'}`);
+    }
+  }, [isTxError, txError, contractTxHash]);
+
+  // Handle contract errors
+  useEffect(() => {
+    if (contractError) {
+      setError(`Contract error: ${contractError.message}`);
+    }
+  }, [contractError]);
 
   function updateMarket(idx: number, patch: Partial<DraftMarket>) {
     setMarkets((prev) =>
@@ -363,31 +399,82 @@ export default function CreateEventForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/events", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          accept: "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          description,
-          image_url: imageUrl,
-          markets,
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        setError(text || `Failed to create event (${res.status})`);
+    //   const res = await fetch("/api/events", {
+    //     method: "POST",
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //       accept: "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       name,
+    //       description,
+    //       image_url: imageUrl,
+    //       markets,
+    //     }),
+    //   });
+    //   if (!res.ok) {
+    //     const text = await res.text().catch(() => "");
+    //     setError(text || `Failed to create event (${res.status})`);
+    //     setSubmitting(false);
+    //     return;
+    //   }
+    //   const created = await res.json();
+    //   router.push(`/event/${created.id}`);
+    //   router.refresh();
+    console.log("Submitting")
         setSubmitting(false);
-        return;
-      }
-      const created = await res.json();
-      router.push(`/event/${created.id}`);
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
       setSubmitting(false);
+    }
+  }
+
+  // New contract submission function
+  async function onSubmitContract(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    
+    try {
+      // Validate form data
+      if (!name.trim()) {
+        setError("Event name is required");
+        return;
+      }
+      
+      if (markets.length === 0 || markets.some(m => !m.name.trim() || !m.open_until)) {
+        setError("At least one market with name and end date is required");
+        return;
+      }
+
+      // Convert markets to MarketConfig array
+      const marketConfigs = markets.map(market => {
+        const endDate = new Date(market.open_until);
+        const now = new Date();
+        const durationSeconds = Math.floor((endDate.getTime() - now.getTime()) / 1000);
+        
+        return {
+          question: market.name,
+          duration: BigInt(Math.max(durationSeconds, 0)), // Ensure positive duration
+          fee: BigInt(100), // 1% fee (100 basis points)
+          seedCollateral: parseEther("0.00001") // 0.01 ETH as seed collateral
+        };
+      });
+
+      // Random address for EventFactory contract (replace with actual deployed address)
+      const eventFactoryAddress = "0x6450031EC3DB3E802a753b03Ea7717F551AFACE7" as const;
+
+      // Call the contract
+      writeContract({
+        address: eventFactoryAddress,
+        abi: EventFactoryABI.abi,
+        functionName: "createManualEvent",
+        args: [name, description, marketConfigs],
+        value: parseEther("0.00001"), // Send some ETH for gas and seed collateral
+      });
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
     }
   }
 
@@ -436,6 +523,7 @@ export default function CreateEventForm() {
       <aside className="hidden lg:block lg:col-span-1 lg:sticky lg:top-16 h-fit">
         <form onSubmit={onSubmit} className="space-y-4">
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          {success ? <div className="text-sm text-green-600">{success}</div> : null}
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="name">
               Name
@@ -527,10 +615,30 @@ export default function CreateEventForm() {
             ))}
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 space-y-2">
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Publishing..." : "Publish event"}
             </Button>
+            <Button 
+              type="button" 
+              onClick={onSubmitContract}
+              disabled={isContractPending || isConfirming}
+              variant="outline"
+              className="w-full"
+            >
+              {isContractPending ? "Preparing transaction..." : 
+               isConfirming ? "Confirming transaction..." : 
+               isConfirmed ? "Event Created Successfully!" :
+               isTxError ? "Transaction Failed" :
+               "Create Event on Chain"}
+            </Button>
+            {contractTxHash && (
+              <div className="text-xs text-muted-foreground">
+                Transaction: {contractTxHash.slice(0, 10)}...{contractTxHash.slice(-8)}
+                {isConfirmed && <span className="text-green-600 ml-2">✓ Success</span>}
+                {isTxError && <span className="text-red-600 ml-2">✗ Failed</span>}
+              </div>
+            )}
           </div>
         </form>
       </aside>
@@ -539,6 +647,7 @@ export default function CreateEventForm() {
       <div className="lg:hidden">
         <form onSubmit={onSubmit} className="space-y-4">
           {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          {success ? <div className="text-sm text-green-600">{success}</div> : null}
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="m_name">
               Name
@@ -630,10 +739,30 @@ export default function CreateEventForm() {
             ))}
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 space-y-2">
             <Button type="submit" disabled={submitting} className="w-full">
               {submitting ? "Publishing..." : "Publish event"}
             </Button>
+            <Button 
+              type="button" 
+              onClick={onSubmitContract}
+              disabled={isContractPending || isConfirming}
+              variant="outline"
+              className="w-full"
+            >
+              {isContractPending ? "Preparing transaction..." : 
+               isConfirming ? "Confirming transaction..." : 
+               isConfirmed ? "Event Created Successfully!" :
+               isTxError ? "Transaction Failed" :
+               "Create Event on Chain"}
+            </Button>
+            {contractTxHash && (
+              <div className="text-xs text-muted-foreground">
+                Transaction: {contractTxHash.slice(0, 10)}...{contractTxHash.slice(-8)}
+                {isConfirmed && <span className="text-green-600 ml-2">✓ Success</span>}
+                {isTxError && <span className="text-red-600 ml-2">✗ Failed</span>}
+              </div>
+            )}
           </div>
         </form>
       </div>
