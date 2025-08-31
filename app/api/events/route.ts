@@ -27,7 +27,9 @@ export async function GET() {
 
   const { data: markets, error: mErr } = await supabaseAdmin
     .from("event_markets")
-    .select("id, event_id, name, is_resolved, open_until, created_at")
+    .select(
+      "id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume"
+    )
     .in("event_id", ids);
 
   if (mErr) return new Response("db error", { status: 500 });
@@ -39,10 +41,18 @@ export async function GET() {
     byEventId.set(m.event_id, arr);
   }
 
-  const withMarkets = (events || []).map((e) => ({
-    ...e,
-    markets: byEventId.get(e.id) || [],
-  }));
+  const withMarkets = (events || []).map((e) => {
+    const mkts = byEventId.get(e.id) || [];
+    const traded_volume = mkts.reduce(
+      (sum, m) => sum + (Number(m.traded_volume) || 0),
+      0
+    );
+    return {
+      ...e,
+      markets: mkts,
+      traded_volume,
+    };
+  });
 
   return Response.json(withMarkets);
 }
@@ -81,6 +91,8 @@ export async function POST(req: Request) {
         name: typeof m?.name === "string" ? m.name : null,
         is_resolved: typeof m?.is_resolved === "boolean" ? m.is_resolved : null,
         open_until: typeof m?.open_until === "string" ? m.open_until : null,
+        last_price: 0.5,
+        traded_volume: 0,
       }))
       .filter((m: any) => (m.name || "").trim().length > 0);
 
@@ -88,7 +100,9 @@ export async function POST(req: Request) {
       const { data: inserted, error: mErr } = await supabaseAdmin
         .from("event_markets")
         .insert(rows)
-        .select("id, event_id, name, is_resolved, open_until, created_at");
+        .select(
+          "id, event_id, name, is_resolved, open_until, created_at, last_price, traded_volume"
+        );
 
       if (mErr) {
         await supabaseAdmin.from("events").delete().eq("id", createdEvent.id);
@@ -99,7 +113,7 @@ export async function POST(req: Request) {
   }
 
   return new Response(
-    JSON.stringify({ ...createdEvent, markets: createdMarkets }),
+    JSON.stringify({ ...createdEvent, markets: createdMarkets, traded_volume: 0 }),
     {
       status: 201,
       headers: { "Content-Type": "application/json" },

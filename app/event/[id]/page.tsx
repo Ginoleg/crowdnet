@@ -1,5 +1,5 @@
-import { getDbEventById } from "@/actions/db-events";
-import type { PolymarketMarket } from "@/types/events";
+import { getDbEventById } from "@/actions/events";
+import type { DbMarket } from "@/types/events";
 import EventClient from "./event-client";
 
 export type PageProps = {
@@ -24,9 +24,7 @@ export default async function EventPage({ params }: PageProps) {
     );
   }
 
-  const markets: PolymarketMarket[] = Array.isArray(event.markets)
-    ? event.markets
-    : [];
+  const markets: DbMarket[] = Array.isArray(event.markets) ? event.markets : [];
 
   return (
     <div className="font-sans items-center justify-items-center min-h-screen">

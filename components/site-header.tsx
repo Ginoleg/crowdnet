@@ -103,11 +103,11 @@ export function SiteHeader() {
                 {authenticated ? (
                   <Button
                     variant="ghost"
-                    className="h-8 px-3 -mr-4 gap-1"
+                    className="h-8 px-3 -mr-12 gap-1"
                     onClick={() => router.push("/event/create")}
                   >
                     <SquarePen className="h-4 w-4" />
-                    Create event
+                    <span className="hidden sm:block">Create event</span>
                   </Button>
                 ) : (
                   <Dialog>
