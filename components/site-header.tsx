@@ -73,12 +73,12 @@ export function SiteHeader() {
 
   return (
     <nav className="w-full sticky top-0 z-50 border-black/[6%] border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-      <div ref={containerRef} className="relative w-full h-[90px]">
+      <div ref={containerRef} className="relative w-full">
         {/* Expanded two-row header */}
         <div
           ref={expandedRef}
           className={
-            "absolute left-0 right-0 top-0 transition-all opacity-100 translate-y-0 duration-500 ease-out"
+            "transition-all opacity-100 translate-y-0 duration-500 ease-out"
           }
         >
           <div className="flex items-center justify-center h-11 pt-2 px-3">
